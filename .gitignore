@@ -1,0 +1,5 @@
+venv
+.env
+research
+prompt.txt
+test.py
