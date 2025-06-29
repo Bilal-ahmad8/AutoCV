@@ -5,7 +5,9 @@ langchain-groq
 langchain-google-genai
 langchain-tavily
 langchain_agentql
+langchain-hugingface
 langgraph
+crawl4ai
 
 pymupdf
 
@@ -18,3 +20,5 @@ pydantic[email]
 
 ipykernel
 python-dotenv
+
+jinja2
