@@ -1,14 +1,17 @@
 from langchain_google_genai import ChatGoogleGenerativeAI
-from tools.document_loader import extract_all
+from utils.document_loader import extract_all
 from langchain_core.prompts import PromptTemplate
+from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv()
 
 class ResumeParser:
-    def __init__(self, context):
+    def __init__(self, resume_path:Path):
         load_dotenv()
         self.model = ChatGoogleGenerativeAI('gemma-3-1b-it')
+
+        self.resume_path = resume_path
 
         self.prompt = PromptTemplate(template = """
         You are a resume parser AI assistant.
@@ -40,10 +43,12 @@ class ResumeParser:
 
         """, input_variables= ["context"])
 
-        self.final_prompt = self.prompt.invoke({'context': context})
+        
 
     
     def invoke(self):
-        result = self.model.invoke(self.final_prompt)
+        context = extract_all(self.resume_path)
+        final_prompt = self.prompt.invoke({'context': context})
+        result = self.model.invoke(final_prompt)
         return result.content
 
