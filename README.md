@@ -1,137 +1,63 @@
-First need to Extract the Contextual Job using - Agent 1
+# AutoCV
 
-Optional (Can also Extract data from the Job with the same Agent 1 using ExtractWebBrowserTool )
+This MVP was built as a solo portfolio project to demonstrate core AI capabilities in resume optimization and job matching.
+AutoCV is an AI-powered MVP project designed to help users find the most suitable jobs based on their resumes and automatically tailor their resumes to job requirements. Built mainly using [LangGraph](https://github.com/langchain-ai/langgraph) and [LangChain](https://github.com/langchain-ai/langchain), it streamlines the job search and resume optimization process.
 
-Using Selected Job Url can extract Job description and requirement using - Agent 2
+## Features
 
-Using Existing Information + Job description make a more informed Resume / CV with ATS Score of atleast 90%.
+- **Resume Upload**: Users can upload their resume (PDF format).
+- **Resume Parsing**: The system intelligently extracts and parses resume content.
+- **Profile Generation**: Key user profile details are generated from the resume.
+- **Job Matching**: Finds the most suitable jobs for the user based on extracted profile data.
+- **Tailored Resume Writing**: Automatically rewrites and tailors the resume to match the job requirements.
 
-To build an intelligent agent that finds the most suitable job for a user based on a **user profile** and a **set of job descriptions**, you need to combine **semantic matching**, **ranking**, and possibly **machine learning** or **embedding-based similarity** strategies.
+## Project Workflow
 
-Here are key approaches and tools you can use:
+The core workflow is implemented in [`graph.py`](graph.py), structured as a state graph with the following nodes:
 
----
+1. **Extract Resume**: Loads and extracts text from the uploaded resume (PDF).
+2. **Resume Parser**: Parses the extracted text to generate structured information.
+3. **Profile Writer**: Creates a user profile from parsed resume data.
+4. **Job Looker**: Searches for and selects the best job match for the user.
+5. **Resume Writer**: Rewrites the resume to fit the selected job's requirements.
 
-## ✅ 1. **Text Embedding-Based Semantic Matching**
+These steps are connected in a directed flow managed by LangGraph, ensuring smooth data transition and processing.
 
-### **Goal:** Compare the semantic similarity between the user profile and job descriptions.
+## Tech Stack
 
-### Tools:
+- **Python**: Main language for backend logic.
+- **LangGraph**: Manages the workflow as a state graph.
+- **LangChain**: Powers the AI components and orchestration.
+- **TeX**: Used for document formatting and output.
 
-* **OpenAI Embeddings (e.g., `text-embedding-3-small`)**
-* **Hugging Face models like `all-MiniLM-L6-v2` (via SentenceTransformers)**
-* **FAISS** (for fast nearest neighbor search)
+## Getting Started
 
-### How it works:
+1. Clone the repository.
+2. Install dependencies (see `requirements.txt`).
+3. Run the main application (entry point TBD).
+4. Upload your resume and follow the guided flow.
 
-1. Convert user profile and job descriptions to embeddings (dense vectors).
-2. Compute cosine similarity between the user profile and each job description.
-3. Rank jobs by similarity score.
+## MVP Scope
 
-### Why it works:
+- **Automated Job Search**: No manual job hunting required.
+- **Resume Tailoring**: Instantly adapts your resume for the best job found.
+- **Simple Flow**: Designed for quick demonstrations and proof-of-concept.
 
-This approach captures *semantic meaning*, not just keyword overlap. So "project manager" and "program lead" are considered similar if contextually aligned.
+## Future Improvements
 
----
+- Support for more file formats
+- Enhanced job-matching algorithms
+- Integration with job boards and APIs
+- User interface improvements
 
-## ✅ 2. **Keyword/Skill Matching with Weighted Scoring**
+## License
 
-### **Goal:** Score how well the job requirements match the user’s skills/experience.
+MIT License
 
-### How to do it:
+## Contributing
 
-* Extract structured data from both inputs:
-
-  * Skills, experiences, qualifications.
-* Define a scoring rubric:
-
-  * Direct skill match = +2 points
-  * Related skill match = +1 point
-  * Missing required skill = -3 points
-* You can use NLP tools like **spaCy**, **keyword matchers**, or **NER models** to extract info.
-
----
-
-## ✅ 3. **Rule-Based Filtering**
-
-Use this to eliminate jobs that clearly don’t match, for example:
-
-* Required years of experience
-* Mandatory certifications or degrees
-* Location/remote preferences
-
-This narrows the pool before similarity scoring.
+Pull requests are welcome! For major changes, please open an issue first to discuss what you would like to change.
 
 ---
 
-## ✅ 4. **Fine-Tuned Classification Model (Advanced)**
-
-If you have labeled data (job, user profile, and match score), you can train a supervised model.
-
-Model types:
-
-* Fine-tuned BERT-style classifiers
-* Siamese networks for pairwise ranking
-
-Input:
-
-* Pair: (user profile, job description)
-* Output: Match score or binary "match / no match"
-
----
-
-## ✅ 5. **Multi-Criteria Ranking**
-
-If you want to include more nuance:
-
-* Use **learning to rank** methods (e.g., RankNet, LambdaMART)
-* Combine:
-
-  * Similarity score
-  * Experience match
-  * Skill match
-  * Industry/domain relevance
-
-Normalize and weight each factor to create a composite score.
-
----
-
-## ✅ 6. **LLM-Based Matching (Zero/Few-Shot)**
-
-If you're using GPT-4, Claude, or similar:
-You can prompt the model with:
-
-> “Given this user profile and this job description, how strong is the match on a scale from 1 to 10? Explain why.”
-
-You can use this:
-
-* As a fallback where embeddings don't work well.
-* For top-k shortlist refinement.
-
----
-
-## ✅ 7. **Evaluation & Feedback Loop**
-
-To assess effectiveness:
-
-* **Precision\@k**: How many top-k matches are truly relevant?
-* **User feedback loop**: Let users rate the suggested jobs.
-* **A/B testing**: Try different ranking strategies and compare outcomes.
-
----
-
-## 🔧 Summary Table
-
-| Technique                | Purpose                      | Tools / Frameworks                      |
-| ------------------------ | ---------------------------- | --------------------------------------- |
-| Embedding Similarity     | Semantic matching            | OpenAI Embeddings, FAISS, Sentence-BERT |
-| Keyword Matching         | Skill & requirement matching | spaCy, Regex, TF-IDF                    |
-| Rule-Based Filtering     | Basic elimination            | Custom rules                            |
-| LLM Judgement (optional) | Contextual fit               | GPT-4, Claude, Gemini                   |
-| Learning to Rank (ML)    | Optimize ranking             | XGBoost Rank, LightGBM Rank             |
-
----
-
-## 🔍 Want an Example?
-
-If you share a sample user profile and a few job descriptions, I can walk you through how to compute matching scores using these methods.
+*AutoCV: An MVP that lets AI optimize your resume and job search with zero manual effort.*
