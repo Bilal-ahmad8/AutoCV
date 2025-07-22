@@ -38,9 +38,8 @@ def extract_links_with_text(pdf_path: Path):
 
     return links_data
 
-def extract_all(doc_path: Path):
-    text = load_text(doc_path)
-    doc_links = extract_links_with_text(doc_path)
+def extract_all(state):
+    text = load_text(state['pdf_path'])
+    doc_links = extract_links_with_text(state['pdf_path'])
     context_text = text + "\nAnchor Text With Link :\n" + str(doc_links)
-
-    return context_text 
+    return {'raw_resume_text' : context_text} 

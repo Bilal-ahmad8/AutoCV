@@ -1,21 +1,16 @@
-import os, requests
-from pydantic import BaseModel
+import os
 from typing import List, Any, Dict
 from langchain.tools import tool
 from dotenv import load_dotenv
-
+import httpx
 load_dotenv()
 app_id = os.getenv("APP_ID")
 app_key = os.getenv('APP_KEY')
 
 
-class JobFormatter(BaseModel):
-    what : str 
-    # skills : Optional[List[str]] = Field(default=None, description= "Skills that is mentioned in Resume/CV ")
 
-
-@tool("job_search_tool", args_schema=JobFormatter)
-def job_search_tool(what:str) -> List[Dict[str, Any]]:
+@tool
+async def job_search_tool(what:str) -> List[Dict[str, Any]]:
     """
 Search for jobs based on a given job title or keyword. 
 
@@ -36,8 +31,9 @@ Returns:
         "max_days_old": 10,
         "results_per_page": 3 
     }
-
-    res = requests.get(url, params=params)
+    async with httpx.AsyncClient() as client:
+        res = await client.get(url, params =params)
+    #res = requests.get(url, params=params)
     if res.status_code != 200:
         raise Exception(f"API Error: {res.status_code} - {res.text}")
 

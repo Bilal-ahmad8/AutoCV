@@ -22,3 +22,6 @@ ipykernel
 python-dotenv
 
 jinja2
+fastapi "uvicorn[standard]"
+python-multipart
+sse-starlette

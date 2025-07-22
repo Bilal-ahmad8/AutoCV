@@ -1,6 +1,5 @@
 venv
 .env
 research
-prompt.txt
-test.py
-templates
+temp
+output

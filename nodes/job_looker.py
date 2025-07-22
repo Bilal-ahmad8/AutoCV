@@ -16,7 +16,10 @@ class AgentState(TypedDict):
     scored_jobs: List[dict]
     best_job: Optional[dict]
     best_job_description: Optional[str]
-    current_query: Annotated[str, add_messages]
+    best_job_score : Optional[dict]
+    current_query: str
+    previous_query_result: Annotated[str, add_messages]
+    retry_count : int
 
 
 
@@ -26,35 +29,51 @@ class AgentState(TypedDict):
 def generate_query(state: AgentState) -> AgentState:
     load_dotenv()
     model = ChatGroq(model='gemma2-9b-it')
-    prompt = PromptTemplate(template="""You are helpful AI Agent thats take Input User profile base on that 
-                            suggest job roles e.g., Junior Machine Learning Engineer, React Developer, DevOps Engineer, Data Scientist, Senior Content Writer ,etc. 
-                            Output should only one string which ever perfectly matches user profile 
-                            Profile: {context}
-                            Previous query: {query} """, input_variables=['context', 'query'])
-    prompt_final = prompt.invoke({'context': state["user_profile"], 'query': state["current_query"]})
+    prompt = PromptTemplate(template="""You are a helpful AI Agent suggesting job roles based on a user profile. Your goal is to find a job title that will yield good search results.
+
+User Profile: {context}
+
+You have already tried the following job queries: **{tried_queries}**
+
+The last query result was: {result}
+
+Based on this, generate a **new and different** job role that closely matches the user profile but is likely to yield different search results. Output only the single job title string.
+""", 
+        input_variables=['context', 'tried_queries', 'result'])
+    prompt_final = prompt.invoke({'context': state["user_profile"], 'tried_queries':state["job_queries"], 'result': state['previous_query_result']})
     result = model.invoke(prompt_final)
     query = result.content
-    print(query)
+    #print(query)
     return {
-        **state,
         "current_query": query,
         "job_queries": state.get("job_queries", []) + [query],
     }
 
 def query_state(state:AgentState) -> AgentState:
         return {**state,
-                "current_query": "No jobs found from last query. Try different query."}
+                "previous_query_result": "No jobs found from last query. Try different query.",
+                "retry_count": state.get("retry_count", 0) + 1}
 
-def retry_query(state:AgentState) -> str:
-    return "score_jobs" if state['job_listings'] else 'retry_query'
+def more_query(state: AgentState) -> str:
+    job_count = len(state.get('job_listings', []))
+    retries = state.get("retry_count", 0)
+
+    if job_count >= 5:
+        return "score_jobs"
+    if retries >= 4:
+        return END
+
+    return "query_state"
+
     
 
-def find_jobs(state: AgentState) -> AgentState:
-    jobs = job_search_tool.run(state["current_query"][-1].content)
+async def find_jobs(state: AgentState) -> AgentState:
+    jobs = await job_search_tool.arun(state["current_query"])
+    existing_jobs = state.get("job_listings", [])
     if jobs is not None:
-        return {**state, "job_listings": jobs}
+        return {**state, "job_listings": existing_jobs + jobs}
     else:
-        return {**state, "job_listings": [], "current_query": "No jobs found from last query. Try different query."}
+        return {**state, "job_listings": existing_jobs }
 
 async def score_jobs(state: AgentState) -> AgentState:
     scored = []
@@ -75,6 +94,7 @@ async def score_jobs(state: AgentState) -> AgentState:
                 "profile": state["user_profile"],
                 "job": desc
             }
+
             score = await score_resume_against_job.arun(tool_input_for_scorer)
         scored.append({"job": job, "url": job["url"] ,"score": score, "description": desc})
     return {**state, "scored_jobs": scored}
@@ -126,18 +146,23 @@ def pick_best_job(state: AgentState) -> AgentState:
             json_content = content[len(json_start_tag) :-len(json_end_tag)]
 
             selected = json.loads(json_content)  
+        else:
+            selected = json.loads(json_content) 
     uid = selected['job']['url']
 
     for entry in state["scored_jobs"]:
         if entry['job']['url'] == uid:
             description = entry['description']
+            score = entry['score']
             break
         else:
             description = None
+            score = None
     return {
         **state,
         "best_job": selected["job"],
-        "best_job_description": description
+        "best_job_description": description,
+        "best_job_score" : score
     }
 
 def should_retry(state: AgentState) -> str:
@@ -145,9 +170,9 @@ def should_retry(state: AgentState) -> str:
         return END
     return "generate_query"
 
-# --------------------
-# Graph Construction
-# --------------------
+
+# Graph 
+
 graph = StateGraph(AgentState)
 
 graph.add_node("generate_query", generate_query)
@@ -159,125 +184,26 @@ graph.add_node("pick_best_job", pick_best_job)
 graph.set_entry_point("generate_query")
 
 graph.add_edge("generate_query", "find_jobs")
-graph.add_conditional_edges("find_jobs", retry_query)
+graph.add_conditional_edges("find_jobs", more_query)
+graph.add_edge('query_state', "generate_query")
 graph.add_edge("score_jobs", "pick_best_job")
 graph.add_conditional_edges("pick_best_job", should_retry)
 
 app = graph.compile()
 
-# --------------------
-# Run Example
-# --------------------
-async def JobLooker(state):
-    result = await app.ainvoke(state)
-    if result['best_job']:
-        return result       
 
-
-if __name__ == "__main__":
-    initial_state = { "user_profile": {
-    "Job Title": [
-      "Frontend Developer",
-      "React Developer",
-      "Web Developer"
-    ],
-    "Experience Years": "1",
-    "Education": [
-      {
-        "Degree": "Bachelor of Computer Applications",
-        "University": "University of Mumbai",
-        "Graduation Year": "2025"
-      },
-      {
-        "Degree": "High School",
-        "University": "St. Xavier's College Junior College",
-        "Graduation Year": "2022"
-      },
-      {
-        "Degree": "High School",
-        "University": "St. Xavier's College Junior College",
-        "Graduation Year": "2020"
-      }
-    ],
-    "Responsibilities": [
-      "Developing and maintaining web applications using React.js",
-      "Creating responsive and user-friendly UI components",
-      "Collaborating with backend developers for API integration",
-      "Debugging and optimizing frontend performance",
-      "Implementing reusable components and front-end libraries",
-      "Maintaining code quality and documentation",
-      "Building single-page applications (SPAs)",
-      "Using version control tools like Git",
-      "Participating in code reviews and agile ceremonies",
-      "Writing unit and integration tests for frontend features",
-      "Ensuring cross-browser compatibility",
-      "Implementing form validation and handling edge cases",
-      "Deploying frontend apps to staging and production environments",
-      "Working with RESTful APIs and JSON data structures",
-      "Refactoring legacy code for better performance and readability"
-    ],
-    "Skills": [
-      "React.js",
-      "JavaScript (ES6+)",
-      "HTML5",
-      "CSS3",
-      "Tailwind CSS",
-      "Bootstrap",
-      "Redux",
-      "React Router",
-      "Next.js",
-      "TypeScript",
-      "Git/GitHub",
-      "RESTful APIs",
-      "JSON",
-      "Node.js (Basic)",
-      "NPM/Yarn",
-      "Webpack",
-      "Babel",
-      "Responsive Design",
-      "Cross-browser Compatibility",
-      "Axios",
-      "Jest",
-      "React Testing Library",
-      "CI/CD (Basic)",
-      "Figma to Code Conversion",
-      "UI/UX Design Principles",
-      "State Management",
-      "Component-based Architecture",
-      "Single Page Applications (SPA)",
-      "Hooks (useState, useEffect, etc.)",
-      "Linting and Formatting Tools (ESLint, Prettier)",
-      "Firebase (Basic Auth and Hosting)",
-      "Performance Optimization",
-      "Form Handling (Formik, Yup)",
-      "Agile Development",
-      "Scrum",
-      "Debugging Tools (Chrome DevTools)",
-      "Local Storage & Session Storage",
-      "DOM Manipulation",
-      "Basic SEO Principles for SPAs",
-      "Error Boundary Handling in React",
-      "Code Splitting and Lazy Loading",
-      "Accessibility (ARIA roles, semantic HTML)",
-      "Mobile-first Design",
-      "Version Control",
-      "Basic Linux Commands",
-      "Basic AWS (S3, Amplify)"
-    ]},
+async def JobLooker( external_state):
+    internal_state =  {"user_profile": external_state['user_profile'],
         "job_queries": [],
         "job_listings": [],
         "scored_jobs": [],
         "best_job": None,
         "best_job_description": None,
-        "current_query": " ", }
-    result = asyncio.run(JobLooker(initial_state))
-    print("Best Job Match:", result["best_job"])
-    print("\n\n")
-    print("Job Description:", result["best_job_description"])
-    print("\n\n")
-    print('score:', result['score'])
-    print('\n\n')
-    print("url:", result['url'])
-    print('\n\n')
-    print(result)
-
+        "best_job_score": None,
+        "current_query": " ",
+        "retry_count": 0 }
+    result = await app.ainvoke(internal_state)
+    if result['best_job']:
+        return {'best_job': result['best_job'],
+                'best_job_description': result['best_job_description'],
+                'best_job_score': result['best_job_score']}      

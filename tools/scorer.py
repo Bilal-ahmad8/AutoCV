@@ -19,9 +19,12 @@ def score_skills(user_skills, job_skills):
     missing_skills = job_skills_lower - user_skills_lower
 
     score = ( len(exact_matches) * 2 + len(missing_skills) * -1 )
-    max_score = len(job_skills_lower) * 2  # All match = full score
+    max_score = float(len(job_skills_lower) * 2)  # All match = full score
 
-    normalized_score = max(score / max_score, 0)
+    if max_score == 0.0:
+      normalized_score = 0.0
+    else:
+      normalized_score = max(score / max_score, 0)
     return normalized_score, list(exact_matches), list(missing_skills)
 
 
@@ -32,15 +35,19 @@ def education_fields_match(profile_education, job_requirements, threshold=0.6):
     """
     # Step 1: Extract user's fields of study
     user_fields = []
-    for entry in profile_education:
-        degree = entry.get("Degree", "")
-        if degree:
-            user_fields.append(degree.lower())
+    #user_highest_qualification = []
+    level_priority = ["master", "bachelor", "intermediate", "high school"]
 
-    # Step 2: Infer required field from job requirements
+    for level in level_priority:
+        for entry in profile_education:
+            degree = entry.get("Degree", "").lower()
+            if level in degree:
+                user_fields.append(entry.get("Degree", "").strip())
+    
+  
     required_field = ""
     for req in job_requirements:
-        if "degree" in req.lower():
+        if "degree" in str(req).lower():
             required_field = req.lower()
             break
 
@@ -62,13 +69,7 @@ def score_bonus(profile, job):
 
     # Experience match
     profile_exp = float(profile.get("Experience Years", 0))
-    required_exp = 0
-    for req in job.get("requirement", []):
-        if "year" in req.lower():
-            match = [int(s) for s in req.split() if s.isdigit()]
-            if match:
-                required_exp = match[0]
-                break
+    required_exp = float(job.get("required_experience_years"))
     if profile_exp >= required_exp:
         bonus += 0.5
         explanation.append("✅ Experience requirement met")
@@ -77,7 +78,7 @@ def score_bonus(profile, job):
 
     # Education match 
     profile_edu = profile.get("Education", [])
-    job_reqs = job.get("requirement", [])
+    job_reqs = job.get("preferred_qualifications", [])
     if education_fields_match(profile_edu, job_reqs):
         bonus += 0.5
         explanation.append("✅ Education field matches job requirement")
@@ -135,9 +136,12 @@ def score_resume_against_job(profile, job):
         }
     """
     # Semantic similarity
-    #job = json.load(job)
     job_text = job.get("job_description", "") + "\n" + "\n".join(job.get("responsibilities", []))
-    user_text = build_embedding_text(profile)
+    if isinstance(profile , str):
+      profile = json.loads(profile)
+      user_text = build_embedding_text(profile)
+    else:
+        print(type(profile))
     semantic_score = compute_semantic_similarity(user_text, job_text)
 
     # Skills
@@ -166,145 +170,3 @@ def score_resume_against_job(profile, job):
         "bonus_explanation": bonus_explanation }
     
     return result
-
-profile = """{
-  "Job Title": [
-    "Data Scientist",
-    "Machine Learning Engineer",
-    "Data Analyst"
-  ],
-  "Experience Years": "1",
-  "Education": [
-    {
-      "Degree": "Bachelor of Commerce",
-      "University": "University of Lucknow",
-      "Graduation Year": "2025"
-    },
-    {
-      "Degree": "High School",
-      "University": "Christ Church College",
-      "Graduation Year": "2022"
-    },
-    {
-      "Degree": "High School",
-      "University": "Christ Church College",
-      "Graduation Year": "2020"
-    }
-  ],
-  "Responsibilities": [
-    "Data Analysis and Interpretation",
-    "Machine Learning Model Development and Deployment",
-    "Data Preprocessing and Cleaning",
-    "Model Optimization and Evaluation",
-    "Feature Engineering",
-    "Pipeline Automation",
-    "Data Collection and Validation",
-    "Workflow Streamlining",
-    "Client Onboarding Support",
-    "Building and improving AI-powered systems",
-    "Developing and deploying user-friendly applications",
-    "Implementing Machine Learning algorithms",
-    "Training and optimizing models",
-    "Data augmentation and handling missing data",
-    "Implementing RAG systems"
-  ],
-  "Skills": [
-    "Python",
-    "Machine Learning",
-    "Deep Learning",
-    "Generative AI",
-    "RAG",
-    "AI Agents",
-    "PyTorch",
-    "TensorFlow",
-    "Keras",
-    "Scikit-Learn",
-    "XGBoost",
-    "LGBoost",
-    "Optuna",
-    "MLOps",
-    "CI/CD Pipelines",
-    "MLflow",
-    "DVC",
-    "Git/GitHub",
-    "DagsHub",
-    "AWS",
-    "Apache Airflow",
-    "SQL",
-    "Docker",
-    "Data Analysis",
-    "Data Preprocessing",
-    "Model Training",
-    "Model Evaluation",
-    "Feature Engineering",
-    "Data Visualization",
-    "Time Series Analysis",
-    "Natural Language Processing (NLP)",
-    "Computer Vision",
-    "Text Preprocessing",
-    "Bidirectional LSTM",
-    "Word2Vec",
-    "CNN",
-    "Transfer Learning",
-    "DenseNet121",
-    "ROC Curve Analysis",
-    "Imputation",
-    "Classification",
-    "Regression",
-    "Clustering",
-    "Supervised Learning",
-    "Unsupervised Learning",
-    "Generative AI",
-    "Data Collection",
-    "Data Validation",
-    "Workflow Automation",
-    "User-friendly form design",
-    "Healthcare Data Analysis",
-    "SVM",
-    "Random Forest",
-    "Patient Outcome Prediction"
-  ]
-}"""
-
-job = """{
-  "job_description": "Weekday AI is seeking an experienced Fullstack Engineer to develop scalable web applications and microservices.  The ideal candidate will have expertise in React (frontend) and FastAPI/Python (backend), along with experience working with cloud platforms and infrastructure tools.",
-  "skill_required": [
-    "React",
-    "FastAPI",
-    "Python",
-    "PostgreSQL",
-    "Google Cloud Platform (GCP)",
-    "Docker",
-    "Kubernetes",
-    "Microservices architecture",
-    "API design",
-    "Git"
-  ],
-  "requirement": [
-    "3 to 10+ years of experience as a Full Stack Developer",
-    "Bachelor’s or Master’s degree in Computer Science or a related field"
-  ],
-  "responsibilities": [
-    "Design, develop, and deploy microservices using FastAPI/Python, primarily on Google Cloud Platform (GCP)",
-    "Build responsive, performant frontend applications using React and integrate them seamlessly with backend services",
-    "Design and optimize relational databases using PostgreSQL",
-    "Implement and manage CI/CD pipelines using GCP-native tools and best practices",
-    "Collaborate with cross-functional teams to deliver features and enhancements",
-    "Ensure high performance, scalability, and maintainability of applications across the stack",
-    "Design, document, and implement RESTful APIs",
-    "Conduct code reviews, enforce best practices, and mentor junior developers where necessary",
-    "Stay current with emerging technologies and recommend improvements to enhance development workflows"
-  ]
-}"""
-
-import time
-if __name__ == '__main__':
-    start = time.time()
-    profile = json.loads(profile)
-    job = json.loads(job)
-    details = score_resume_against_job(profile=profile, job=job)
-    print(details)
-    end = time.time()
-    print(end-start)
-    for key in details.keys():
-        print(details[key])

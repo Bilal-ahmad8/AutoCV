@@ -9,23 +9,31 @@ from dotenv import load_dotenv
 
 def prettify_description(text):
    load_dotenv()
-   model = ChatGroq(model='gemma2-9b-it')
+   model = ChatGroq(model='llama-3.1-8b-instant')
    prompt = PromptTemplate(template = """
-You are a helpful AI bot that receives the full scraped text of a job listing web page.
-Your task is to carefully analyze the content and extract key details about the job.
-Return a structured JSON object with the following fields:
+You are a helpful AI agent that receives the full scraped text of a job listing web page.
 
-- job_description: A concise and accurate summary of the job. Maintain the tone and key terms from the original text.
-- skill_required: A list of specific skills explicitly or implicitly required for the job.
-- requirement: Any mandatory qualifications or expectations (e.g. years of experience, degrees).
-- responsibilities (optional): Key duties or tasks the job entails.
-- preferred_qualifications (optional): Nice-to-have skills, experience, or traits.
+Your task is to analyze the content carefully and extract structured information about the job.
 
-Only return the final result in valid JSON format.
+Return a valid JSON object with the following exact fields:
 
-Here is the full scraped site text:
+- job_description: A concise and accurate summary of the job. Preserve tone and key terms from the original text.
+- skill_required: A list of specific skills explicitly or implicitly required for the role (technologies, tools, soft skills).
+- requirement: A list of any mandatory qualifications or expectations (e.g., degrees, certifications, years of experience).
+- responsibilities: A list of the core duties or tasks associated with the job. If not available, return an empty list.
+- preferred_qualifications: A list of nice-to-have skills, experience, or traits. If none are found, return an empty list.
+- required_experience_years: A number indicating the minimum required years of experience. 
+    - If a range is mentioned (e.g., "3–5 years"), use the **lower bound**.
+    - If a phrase like "3 to 10+ years" appears, take the **first number**.
+    - If no value is clearly mentioned, set it to `0`.
+
+⚠️ Output only valid JSON (no explanations or Markdown).
+⚠️ The JSON **must match the exact field names and structure**, including the numeric `required_experience_years`.
+
+Here is the full scraped job listing text:
 {context}
 """
+
 )
    
    final_prompt = prompt.invoke({'context': text})
@@ -49,16 +57,19 @@ async def extract_description(url):
                      "Chrome/116.0.5845.111 Safari/537.36" ))
       
       run_cfg = CrawlerRunConfig(
+        page_timeout= 30000,
         simulate_user=True,          # move mouse, etc.
         override_navigator=True ,     # override navigator for stealth,
         remove_overlay_elements=True,   # auto-close pop-ups
-        wait_until="networkidle" )     # wait for page load 
+        wait_until="domcontentloaded",
+        delay_before_return_html=3.0 )     # wait for page load 
       
       async with AsyncWebCrawler(config=browser_cfg) as crawler:
         result = await crawler.arun(url=url, config=run_cfg)
 
       if not result.success:
-        raise RuntimeError(f"Crawl failed: {result.error_message}")
+        print(f"Crawl failed: {result.error_message}")
+        return f"Crawl failed: {result.error_message}"
 
       html = result.cleaned_html or result.html or ""
       text = BeautifulSoup(html, "html.parser").get_text(separator="\n", strip=True)
@@ -69,7 +80,6 @@ async def extract_description(url):
         json_end_tag = "```"
         if description.startswith(json_start_tag) and description.endswith(json_end_tag):
           json_content = description[len(json_start_tag):-len(json_end_tag)]
-    # Optional: strip any leading/trailing whitespace that might remain
           json_content = json_content.strip()
         else:
            json_content = description
@@ -77,41 +87,3 @@ async def extract_description(url):
       return json_content
 
       
-if __name__ == '__main__':
-   result = asyncio.run(extract_description('https://www.adzuna.in/details/5248392382?utm_medium=api&utm_source=e1612962'))
-   print(result)
-
-
-
-""""result = ```json
-{
-  "job_description": "Weekday AI is seeking an experienced Fullstack Engineer to develop scalable web applications and microservices.  The ideal candidate will have expertise in React (frontend) and FastAPI/Python (backend), along with experience working with cloud platforms and infrastructure tools.",
-  "skill_required": [
-    "React",
-    "FastAPI",
-    "Python",
-    "PostgreSQL",
-    "Google Cloud Platform (GCP)",
-    "Docker",
-    "Kubernetes",
-    "Microservices architecture",
-    "API design",
-    "Git"
-  ],
-  "requirement": [
-    "3 to 10+ years of experience as a Full Stack Developer",
-    "Bachelor’s or Master’s degree in Computer Science or a related field"
-  ]
-  "responsibilities": [
-    "Design, develop, and deploy microservices using FastAPI/Python, primarily on Google Cloud Platform (GCP)",
-    "Build responsive, performant frontend applications using React and integrate them seamlessly with backend services",
-    "Design and optimize relational databases using PostgreSQL",
-    "Implement and manage CI/CD pipelines using GCP-native tools and best practices",
-    "Collaborate with cross-functional teams to deliver features and enhancements",
-    "Ensure high performance, scalability, and maintainability of applications across the stack",
-    "Design, document, and implement RESTful APIs",
-    "Conduct code reviews, enforce best practices, and mentor junior developers where necessary",
-    "Stay current with emerging technologies and recommend improvements to enhance development workflows"
-  ]
-}
-```"""

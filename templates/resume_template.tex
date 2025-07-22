@@ -1,0 +1,116 @@
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Modern Professional Resume - V4 (Hyper-Compact)
+%
+% Compile with: XeLaTeX or LuaLaTeX
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\documentclass[9pt, a4paper]{article} % CHANGED: Base font size from 10pt to 9pt
+
+\usepackage[left=0.5in, right=0.5in, top=0.35in, bottom=0.35in]{geometry} % CHANGED: Tighter vertical margins
+
+% ----- FONTS & ICONS -----
+\usepackage{fontspec}
+\setmainfont{Times New Roman}
+
+
+\usepackage{hyperref}
+\hypersetup{colorlinks=true, urlcolor=blue, pdftitle={Resume for {{ name }}}}
+
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{tabularx}
+
+% ----- CUSTOMIZATIONS -----
+\definecolor{themeblue}{RGB}{0, 0, 0}
+\pagestyle{empty}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.5em} % CHANGED: Tighter paragraph spacing
+
+% CHANGED: Removed \large and tightened spacing
+\titleformat{\section}{\large\bfseries\scshape\color{themeblue}}{}{0em}{}[\titlerule]
+\titlespacing{\section}{0pt}{1.2ex}{0.6ex} 
+
+% CHANGED: Added nosep for ultra-compact lists
+\setlist[itemize]{nosep, leftmargin=*, label=\textbullet, itemsep=0em}
+
+% ----- HEADER COMMANDS (Rewritten for stability) -----
+{% raw %}
+% CHANGED: Name size from \Huge to \Large
+\newcommand{\resumename}[1]{\centering\Large\bfseries #1\par\vspace{0.2em}}
+\newcommand{\contactinfo}[3]{%
+    \centering
+    \begin{tabularx}{0.95\textwidth}{c X c}
+        #1 & \href{mailto:#3}{#3} & #2
+    \end{tabularx}
+\AtBeginDocument{%
+  \fontsize{9}{9.5}\selectfont
+}
+}
+{% endraw %}
+
+\begin{document}
+
+% ================= HEADER =================
+\resumename{ {{ name | escape }} }
+\contactinfo{ {{ phone | escape }} }{ {{ location | escape }} }{ {{ email | escape }} }
+
+% ================= OBJECTIVE =================
+\section*{Objective}
+{{ objective | escape }}
+
+% ================= SKILLS =================
+\section*{Skills}
+\noindent
+{{ skills | join(", ") | escape }}
+
+% ================= EXPERIENCE =================
+\section*{Experience}
+{% for exp in experience %}
+    \begin{tabularx}{\linewidth}{@{} l X r @{}}
+        % CHANGED: Removed \large from role title
+        \textbf{ {{ exp.role | escape }} } & & \textit{ {{ exp.duration | escape }} } \\
+        {{ exp.company | escape }} & & \textit{ {{ exp.location | escape }} }
+    \end{tabularx}
+    \begin{itemize}
+    {%- for bullet in exp.responsibilities %}
+        \item {{ bullet | escape }}
+    {%- endfor %}
+    \end{itemize}
+{%- endfor %}
+
+% ================= PROJECTS =================
+\section*{Projects}
+{%- for project in projects %}
+    % CHANGED: Removed \large from project title
+    \textbf{ {{ project.title | escape }} }
+    \begin{itemize}
+        {% if project.description is string %}
+            \item {{ project.description | escape }}
+        {% else %}
+            {% for item in project.description %}
+                \item {{ item | escape }}
+            {% endfor %}
+        {% endif %}
+        \item \textit{Technologies Used: {{ project.technologies | join(", ") | escape }}}
+    \end{itemize}
+{%- endfor %}
+
+% ================= EDUCATION =================
+\section*{Education}
+\begin{tabularx}{\linewidth}{@{} lX r @{}}
+{%- for edu in education %}
+    \textbf{ {{ edu.degree | escape }} } & {{ edu.institution | escape }} & {{ edu.year | escape }} \\
+{%- endfor %}
+\end{tabularx}
+
+% ================= CERTIFICATIONS =================
+\section*{Certifications}
+\begin{itemize}
+{%- for cert in certifications %}
+    \item \textbf{ {{ cert.name | escape }} } from {{ cert.provider | escape }} ({{ cert.year }})
+{%- endfor %}
+\end{itemize}
+
+\end{document}
