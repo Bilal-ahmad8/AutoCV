@@ -46,6 +46,7 @@ These steps are connected in a directed flow managed by LangGraph, ensuring smoo
 ## Future Improvements
 
 - Support for more file formats
+- Smart Closed Source Models (OpenAI, Anthropic, etc.)
 - Enhanced job-matching algorithms
 - Integration with job boards and APIs
 - User interface improvements
