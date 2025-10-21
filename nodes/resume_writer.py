@@ -7,7 +7,6 @@ from dotenv import load_dotenv
 
 
 def ResumeWriter(state):
-#def __init__(self, org_res, job_desc):
     load_dotenv()
     resume = state['full_resume_text']
     desc = state['best_job_description']
@@ -77,6 +76,3 @@ input_variables=['resume', 'description', 'schema']
             resume_path = compile_tex(tex_content)
     return {'tailored_resume_path': resume_path,
             'graph_executed' : True}
-
-    obj = ResumeWriter(resume,job_description)
-    obj.invoke()
